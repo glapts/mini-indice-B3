@@ -40,8 +40,20 @@ class Orchestrator:
         
         self.output_state_path = output_state_path
         self.execution_mode = execution_mode
-        self.daily_stops_count = 0
         self.max_daily_stops = 2
+        self.daily_stops_count = self._load_daily_stops_count()
+
+    def _load_daily_stops_count(self) -> int:
+        """Carrega o contador somente se o estado persistido for do dia atual."""
+        try:
+            with open(self.output_state_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            timestamp = datetime.fromisoformat(payload["timestamp"])
+            if timestamp.date() == datetime.now().date():
+                return int(payload.get("circuit_breaker", {}).get("daily_stops_count", 0))
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+            pass
+        return 0
 
     def record_stop_loss(self):
         """Registra um stop acionado no dia para o Circuit Breaker."""

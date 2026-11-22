@@ -186,15 +186,23 @@ class ExecutionHarness:
         self.last_signal = signal
         self.generated_signals.append(signal)
 
+        # Persiste antes de qualquer alerta/dispatch externo. Assim uma falha de
+        # auditoria não produz um efeito observável que possa ser repetido.
+        try:
+            persisted = self._persist_signals()
+        except Exception:
+            persisted = False
+        if not persisted:
+            self.generated_signals.pop()
+            self.last_signal = self.generated_signals[-1] if self.generated_signals else None
+            raise IOError("Falha ao persistir sinal; operação não confirmada")
+
         # Trata conforme o modo configurado
         if self.mode == ExecutionMode.COPILOT:
             self._handle_copilot_alert(signal)
         elif self.mode == ExecutionMode.FULL_AUTO:
             self._handle_full_auto_dispatch(signal)
 
-        # Salva em disco para trilha de auditoria
-        self._persist_signals()
-        
         # Marca a zona como em execução para não duplicar entradas no mesmo candle
         zone.status = ZoneStatus.EXHAUSTED
 
@@ -242,11 +250,13 @@ class ExecutionHarness:
         print(f"  -> {signal.direction.value} @ {signal.entry_price:.0f} | Stop: {signal.stop_loss:.0f} | Alvo: {signal.take_profit:.0f}")
         # Hook para envio via ProfitDLL ou bridge de automação
 
-    def _persist_signals(self):
-        """Grava histórico de sinais em JSON."""
+    def _persist_signals(self) -> bool:
+        """Grava histórico de sinais em JSON e informa se confirmou a gravação."""
         try:
-            os.makedirs(os.path.dirname(self.signals_output_path), exist_ok=True)
+            os.makedirs(os.path.dirname(self.signals_output_path) or ".", exist_ok=True)
             with open(self.signals_output_path, "w", encoding="utf-8") as f:
                 json.dump([s.model_dump() for s in self.generated_signals], f, indent=2, ensure_ascii=False)
+            return True
         except Exception as e:
             print(f"[HARNESS WARN] Falha ao persistir sinais: {e}")
+            return False

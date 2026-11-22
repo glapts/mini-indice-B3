@@ -21,6 +21,9 @@ class AgentOpinion:
     reason: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
+    # Qualidade dos dados usados pelo parecer. Consumidores que exigem dados
+    # recentes devem bloquear quando o valor for STALE ou DEGRADED.
+    data_quality: str = "GOOD"
 
 
 class BaseAgent(ABC):
