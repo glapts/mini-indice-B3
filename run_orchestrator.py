@@ -168,8 +168,8 @@ def main():
             status_symbol = "🟢 OPERAÇÃO LIBERADA" if state.trading_enabled else "🔴 OPERAÇÃO BLOQUEADA"
             opinion_summary = f"Dir: {state.allowed_direction.value} | Confiança: {state.confidence_score*100:.0f}%"
             print(f"[{now.strftime('%H:%M:%S')}] Ciclo #{cycle_count:04d} | {status_symbol} | {opinion_summary}")
-            if not state.trading_enabled and state.active_vetos:
-                print(f"   -> Motivo do Bloqueio: {state.active_vetos[0]}")
+            if not state.trading_enabled:
+                print("   -> Motivo do Bloqueio: operação desabilitada pelos guardrails.")
             
             time.sleep(args.interval)
 

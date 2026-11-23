@@ -97,9 +97,13 @@ def main():
     def on_candle_event(candle):
         harness.on_candle_closed(candle.timeframe, candle.open, candle.high, candle.low, candle.close, candle.timestamp)
 
+    def on_book_event(snapshot):
+        harness.on_book(snapshot)
+
     feed.set_callbacks(
         on_trade=on_trade_event,
-        on_candle=on_candle_event
+        on_candle=on_candle_event,
+        on_book=on_book_event
     )
 
     print(f"\n[FEED] Conectando ao Nelogica Profit Pro via DDE para {symbol}...")

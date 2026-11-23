@@ -122,7 +122,7 @@ class CestaJurosVetoSkill(BaseAgent):
 
     def to_json_contract(self, now: Optional[datetime] = None) -> Dict[str, Any]:
         ts = now or datetime.now()
-        opinion = self.last_opinion or self.evaluate(ts)
+        opinion = self.evaluate(ts)
 
         if opinion.lockout or (opinion.veto_buy and opinion.veto_sell):
             status = "BLOCK"

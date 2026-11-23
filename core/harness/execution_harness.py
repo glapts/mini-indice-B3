@@ -26,6 +26,7 @@ from core.harness.contracts import (
 from core.harness.gatekeeper import HarnessGatekeeper
 from core.harness.microstructure_filter import MicrostructureFilter
 from core.harness.state_machine import FVGStateMachine
+from analysis.book_analyzer import BookAnalyzer
 
 
 class ExecutionHarness:
@@ -52,6 +53,9 @@ class ExecutionHarness:
         self.state_machine = FVGStateMachine(
             zones=self.niveis.zonas_fvg
         )
+
+        # Analisador de book (nivel 1 via DDE). Alimentado por on_book().
+        self.book_analyzer = BookAnalyzer(depth_levels=10)
 
         self.last_signal: Optional[TradeSignal] = None
         self.generated_signals: List[TradeSignal] = []
@@ -130,6 +134,22 @@ class ExecutionHarness:
     def on_trade(self, price: float, qty: int, aggressor: str, timestamp: datetime) -> Dict[str, Any]:
         """Alimenta o feed do Times & Trades no filtro de microestrutura."""
         return self.microstructure.on_trade(price, qty, aggressor, timestamp)
+
+    def on_book(self, snapshot) -> Dict[str, Any]:
+        """Alimenta o livro de ofertas (nível 1 via DDE) no analisador de book."""
+        from core.models import BookSnapshot
+
+        if not isinstance(snapshot, BookSnapshot):
+            return {"accepted": False, "reason": "Snapshot invalido"}
+
+        self.book_analyzer.update_snapshot(snapshot)
+        return {
+            "accepted": True,
+            "best_bid": snapshot.best_bid,
+            "best_ask": snapshot.best_ask,
+            "spread": snapshot.spread,
+            "depth_levels": min(len(snapshot.bids), len(snapshot.asks)),
+        }
 
     def on_candle_closed(self, timeframe: int, open_p: float, high_p: float, low_p: float, close_p: float, timestamp: datetime):
         """Atualiza quebras de estrutura e transições de iFVG."""

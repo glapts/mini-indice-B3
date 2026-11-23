@@ -441,7 +441,13 @@ def format_operational_alert(
 
     out.append(f"  {C_LABEL}BOOK:{C_RESET}")
     out.append(f"    - Comportamento observado   : {book.get('observed_behavior', 'Dados agregados ou sem profundidade L2')}")
-    m_str = f"Spread: {book.get('metrics', {}).get('spread', 'N/D')} pts | Imbalance Top5: {book.get('metrics', {}).get('book_imbalance_top5', 'N/D')}"
+    _bm = book.get('metrics', {}) or {}
+    _depth = _bm.get('book_depth_levels', 0)
+    _imb = _bm.get('book_imbalance', 'N/D')
+    _imb_label = f"Imbalance Top{_depth}" if _depth else "Imbalance"
+    m_str = f"Spread: {_bm.get('spread', 'N/D')} pts | {_imb_label}: {_imb}"
+    if _depth:
+        m_str += f" | Níveis observados: {_depth}"
     out.append(f"    - Métricas                  : {m_str}")
     out.append(f"    - Possível blefe ou evidência insuficiente: {book.get('classification', 'Evidência insuficiente')}")
     limitations_b = "; ".join(book.get('limitations', ['Feed sem eventos de livro individual']))

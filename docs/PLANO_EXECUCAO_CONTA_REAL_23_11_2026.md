@@ -35,8 +35,16 @@ Validar monitoramento e bloqueios do sistema no primeiro pregão real, sem opera
    - `ITUB4`
    - `DI1F29`
    - `DI1F31`
-3. Arquivo `data/niveis_60m.json` válido e com contrato do vencimento vigente.
-4. Arquivo `data/runtime_state.json` existente (será sobrescrito pelo Orquestrador).
+3. **Aba "Atributos" da janela Exportar em Tempo Real — marcar também:**
+   - `Oferta de Compra` (OCP)
+   - `Oferta de Venda` (OVD)
+   - `Volume Oferta Compra` (VOC)
+   - `Volume Oferta Venda` (VOV)
+   - `Lote Padrão` (LOT)
+
+   Sem esses cinco atributos o book de topo não chega ao algoritmo.
+4. Arquivo `data/niveis_60m.json` válido e com contrato do vencimento vigente.
+5. Arquivo `data/runtime_state.json` existente (será sobrescrito pelo Orquestrador).
 
 ---
 
@@ -86,7 +94,7 @@ Get-Content ".\data\runtime_state.json"
 |-------|---------|
 | Modo obrigatório | `COPILOT` apenas |
 | `FULL_AUTO` | **PROIBIDO** nesta fase |
-| `.bat` antigo | Não usar `EXECUTAR_ORQUESTRADOR_AGENTES.bat` (aponta para pasta errada: `C:\Users\glaci\assistente-win-profit`) |
+| `.bat` de automação | Utilizar `EXECUTAR_ORQUESTRADOR_AGENTES.bat` ou rodar via PowerShell |
 | Ordens automáticas | Nenhuma ordem será enviada pelo sistema |
 | Ordens manuais | Por sua conta e risco, validadas manualmente |
 | Encerramento | `Ctrl+C` nos dois terminais |
@@ -110,7 +118,31 @@ Get-Content ".\data\runtime_state.json"
 
 ## Limitação conhecida
 
-O DDE atual traz preço, variação e volumes agregados de agressão, mas **não traz Book L2 nem Times & Trades individual com fidelidade**. O Harness emitirá alertas com base nos dados disponíveis, mas a microestrutura completa (book e fita de negócios) não está sendo consumida do DDE neste teste.
+O DDE agora entrega **book de topo (nível 1)** — melhor oferta de compra/venda, volumes
+nessas ofertas, spread, imbalance de topo e tamanho do lote do contrato. Esses dados
+alimentam o `BookAnalyzer` e aparecem na seção `BOOK:` do alerta.
+
+**O que continua indisponível via DDE:**
+
+- Book L2 multi-nível (o DDE expõe só o nível 1) — por isso o alerta rotula
+  `Imbalance Top1` e informa `Níveis observados: 1`
+- Times & Trades individual (só agregados: `NEG`, `AGRVOLC`, `AGRVOLV`, `AGRSALDO`)
+
+Consequência: o `MicrostructureFilter` (que exige 100 contratos absorvidos por nível)
+continua operando sobre volumes agregados. **Não tratar o critério de absorção como
+microestrutura real neste teste.**
+
+## Validação específica do book no primeiro ciclo
+
+Nos primeiros minutos de pregão, confirme em outro PowerShell:
+
+```powershell
+python test_dde_query.py
+```
+
+Esperado: `WINZ26.OCP` e `WINZ26.OVD` com valores **diferentes de zero** e
+`WINZ26.LOT` = `1,00` para o mini-índice. Se vierem zerados, o book não está
+publicado e o sistema segue degradando com segurança (alerta sem book).
 
 ---
 

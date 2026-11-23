@@ -100,13 +100,21 @@ class BookAnalyzer:
         latest = self.snapshots_history[-1]
         best_bid = latest.best_bid or 0.0
         best_ask = latest.best_ask or 0.0
-        
-        # Calcular desequilíbrio (Imbalance) nos primeiros 5 níveis
+
+        # Calcular desequilibrio (Imbalance) nos primeiros 5 niveis.
+        # O feed DDE do Profit expoe apenas o TOPO do livro (nivel 1). Quando
+        # menos de 5 niveis estao disponiveis, a metrica e rotulada honestamente
+        # como "top1" e o numero de niveis realmente observados e informado.
         bid_vol_top5 = sum(l.quantity for l in latest.bids[:5])
         ask_vol_top5 = sum(l.quantity for l in latest.asks[:5])
         total_top5 = bid_vol_top5 + ask_vol_top5
         imbalance = ((bid_vol_top5 - ask_vol_top5) / total_top5) if total_top5 > 0 else 0.0
-        
+
+        depth_levels_observed = min(len(latest.bids), len(latest.asks))
+        is_full_depth = depth_levels_observed >= 5
+        imbalance_label = "book_imbalance_top5" if is_full_depth else "book_imbalance_top1"
+        imbalance_depth = 5 if is_full_depth else max(1, depth_levels_observed)
+
         # Verificar se houve grandes ofertas retiradas repetidamente
         suspicious_patterns = []
         for price, rec in list(self.price_level_tracker.items()):
@@ -115,7 +123,7 @@ class BookAnalyzer:
             if not is_currently_present:
                 dist_pts = abs(price - current_price)
                 duration_sec = (rec["last_seen"] - rec["first_seen"]).total_seconds()
-                
+
                 # Se era uma grande oferta (> 200 contratos), durou pouco tempo (< 10 segundos)
                 # e sumiu quando o preço se aproximou (< 20 pontos)
                 if rec["max_qty"] >= 200 and duration_sec < 10.0 and dist_pts <= 25.0:
@@ -133,7 +141,10 @@ class BookAnalyzer:
             "spread": latest.spread,
             "bid_volume_top5": bid_vol_top5,
             "ask_volume_top5": ask_vol_top5,
-            "book_imbalance_top5": round(imbalance, 3),
+            imbalance_label: round(imbalance, 3),
+            "book_imbalance": round(imbalance, 3),
+            "book_depth_levels": depth_levels_observed,
+            "book_imbalance_depth": imbalance_depth,
             "suspicious_patterns_count": len(suspicious_patterns),
             "suspicious_events": suspicious_patterns
         }
@@ -161,7 +172,12 @@ class BookAnalyzer:
                 "Ausência de identificador único de ordem (GUID) na camada pública de dados",
                 "Remoção de oferta não comprova cancelamento deliberado (pode ser execução ou reposicionamento de risco)",
                 "Agentes iguais nas corretoras não comprovam mesmo investidor final",
-                "Nunca afirmar 'spoofing confirmado' com base apenas em dados do feed público"
+                "Nunca afirmar 'spoofing confirmado' com base apenas em dados do feed público",
+                (
+                    "Feed DDE expõe apenas o TOPO do livro (nível 1); imbalance medido em 1 nível, não em 5"
+                    if not is_full_depth
+                    else "Livro completo com 5 níveis observados"
+                )
             ],
             "alternative_explanations": alt_exp
         }

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 
 from feeds.base_feed import BaseMarketFeed, FeedHealth
-from core.models import Candle, Trade, AggressorSide
+from core.models import Candle, Trade, AggressorSide, BookSnapshot, BookLevel
 from core.contract import TZ_BRASILIA, round_to_tick
 
 
@@ -53,6 +53,16 @@ class ProfitDDEFeed(BaseMarketFeed):
         self.last_open: float = 0.0
         self.last_high: float = 0.0
         self.last_low: float = 0.0
+
+        # Book de ofertas de topo (nível 1) exposto pelo Profit via DDE.
+        # Requer os atributos OCP/OVD/VOC/VOV habilitados na janela
+        # "Exportar em Tempo Real (RTD/DDE)" do Profit Pro.
+        self.last_best_bid: float = 0.0
+        self.last_best_ask: float = 0.0
+        self.last_bid_qty: int = 0
+        self.last_ask_qty: int = 0
+        self.contract_lot_size: int = 0
+        self._book_stale_since: Optional[datetime] = None
 
         # Módulo Macro S&P 500 DDE
         self.sp500_symbol: Optional[str] = None
@@ -232,6 +242,12 @@ class ProfitDDEFeed(BaseMarketFeed):
                         self.last_high = high_p
                         self.last_low = low_p
 
+                        # ─────────────────────────────────────────────
+                        # BOOK DE OFERTAS DE TOPO (nível 1) via DDE
+                        # Requer OCP/OVD/VOC/VOV habilitados no Profit Pro.
+                        # ─────────────────────────────────────────────
+                        self._read_top_book(query_item, now, price)
+
                         # Delta e Tape Reading incremental (sem distorção de acumulação diária)
                         delta_c = 0.0
                         delta_v = 0.0
@@ -367,3 +383,92 @@ class ProfitDDEFeed(BaseMarketFeed):
         if self.worker_thread and self.worker_thread.is_alive():
             self.worker_thread.join(timeout=2.0)
         self.health.connected = False
+
+    # ------------------------------------------------------------------
+    # BOOK DE OFERTAS DE TOPO (nível 1) via DDE
+    # ------------------------------------------------------------------
+    def _parse_num(self, raw: Optional[str]) -> Optional[float]:
+        """Converte string numérica do Profit (pt-BR) em float."""
+        if raw is None:
+            return None
+        try:
+            clean = raw.replace('.', '').replace(',', '.').replace('%', '').strip()
+            if not clean:
+                return None
+            return float(clean)
+        except ValueError:
+            return None
+
+    def _read_top_book(self, query_item, now: datetime, last_price: float):
+        """
+        Lê o book de ofertas de topo (nível 1) do Profit via DDE.
+
+        Campos esperados (aba "Atributos" da janela Exportar em Tempo Real):
+            OCP -> Melhor oferta de compra (preço)
+            OVD -> Melhor oferta de venda (preço)
+            VOC -> Volume na oferta de compra
+            VOV -> Volume na oferta de venda
+            LOT -> Tamanho do lote padrão do contrato
+
+        Sem esses atributos habilitados no Profit, os campos não existem e o
+        book permanece indisponível — o motor segue degradando com segurança.
+        """
+        raw_bid = query_item(f"{self.symbol}.OCP")
+        raw_ask = query_item(f"{self.symbol}.OVD")
+        raw_bid_qty = query_item(f"{self.symbol}.VOC")
+        raw_ask_qty = query_item(f"{self.symbol}.VOV")
+        raw_lot = query_item(f"{self.symbol}.LOT")
+
+        if raw_bid is None and raw_ask is None:
+            # Atributos de book não habilitados no Profit (ou mercado sem book).
+            self.health.is_book_available = False
+            self._book_stale_since = self._book_stale_since or now
+            return
+
+        bid_price = self._parse_num(raw_bid) or 0.0
+        ask_price = self._parse_num(raw_ask) or 0.0
+        bid_qty = int(self._parse_num(raw_bid_qty) or 0.0)
+        ask_qty = int(self._parse_num(raw_ask_qty) or 0.0)
+        lot = int(self._parse_num(raw_lot) or 0.0)
+        if lot > 0:
+            self.contract_lot_size = lot
+
+        # Mercado fechado produz book zerado. Considera o book válido somente
+        # quando há preço de oferta coerente com o último negócio.
+        book_valid = (
+            bid_price > 0 and ask_price > 0
+            and ask_price >= bid_price
+            and (bid_qty > 0 or ask_qty > 0)
+        )
+
+        if not book_valid:
+            self.health.is_book_available = False
+            self._book_stale_since = self._book_stale_since or now
+            return
+
+        self.last_best_bid = bid_price
+        self.last_best_ask = ask_price
+        self.last_bid_qty = bid_qty
+        self.last_ask_qty = ask_qty
+        self.health.is_book_available = True
+        self._book_stale_since = None
+
+        # Normaliza as quantidades para contratos, respeitando o lote padrão.
+        lot_size = self.contract_lot_size if self.contract_lot_size > 0 else 1
+        bids = [BookLevel(price=bid_price, quantity=max(1, bid_qty // lot_size))]
+        asks = [BookLevel(price=ask_price, quantity=max(1, ask_qty // lot_size))]
+
+        if self.on_book_callback:
+            self.on_book_callback(BookSnapshot(timestamp=now, bids=bids, asks=asks))
+
+    def get_top_book(self) -> Optional[Dict[str, float]]:
+        """Retorna o snapshot do book de topo em cache (ou None se indisponivel)."""
+        if not self.health.is_book_available:
+            return None
+        return {
+            "best_bid": self.last_best_bid,
+            "best_ask": self.last_best_ask,
+            "bid_quantity": self.last_bid_qty,
+            "ask_quantity": self.last_ask_qty,
+            "contract_lot_size": self.contract_lot_size,
+        }
