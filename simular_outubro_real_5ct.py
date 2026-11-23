@@ -9,7 +9,7 @@ import sys
 from datetime import date
 from typing import Dict, List, Any
 
-ROOT_DIR = r"C:\Users\glaci\assistente-win-profit"
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 

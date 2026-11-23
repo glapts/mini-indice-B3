@@ -1,7 +1,9 @@
 import json
 import math
 
-with open(r'C:\Users\glaci\assistente-win-profit\data\relatorios\resultado_jan_jul_2027.json', 'r', encoding='utf-8') as f:
+import os
+base_dir = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(base_dir, 'data', 'relatorios', 'resultado_jan_jul_2027.json'), 'r', encoding='utf-8') as f:
     months_data = json.load(f)
 
 for m_key, m in months_data.items():

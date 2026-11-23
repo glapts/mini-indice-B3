@@ -18,7 +18,7 @@ from reportlab.pdfgen import canvas
 
 # Caminhos de Saída
 DESKTOP_DIR = r"C:\Users\glaci\OneDrive\Desktop"
-PROJECT_DOCS_DIR = r"C:\Users\glaci\assistente-win-profit\docs"
+PROJECT_DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
 PDF_NAME = "ARQUITETURA_ALGORITMO_WIN_PEDRO_FONSECA.pdf"
 DESKTOP_PDF_PATH = os.path.join(DESKTOP_DIR, PDF_NAME)
 PROJECT_PDF_PATH = os.path.join(PROJECT_DOCS_DIR, PDF_NAME)

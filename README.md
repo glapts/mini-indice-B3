@@ -48,32 +48,32 @@ O assistente foi construído em Python 3.14 x64 sem dependências de compilaçã
 ### Passo 1: Executar Diagnóstico de Conexão
 Verifica os processos do Profit, a conexão DDE nativa e a integridade do ambiente:
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py diagnose
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py diagnose
 ```
 
 ### Passo 2: Teste de Replay & Validação dos 9 Setups
 Executa uma simulação com os 7 tempos gráficos (1m, 2m, 5m, 10m, 15m, 30m e 60m), injeta sweeps e valida o motor determinístico:
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py test-replay
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py test-replay
 ```
 
 ### Passo 3: Backtest Quantitativo Fora da Amostra
 Avalia os setups em múltiplas sessões simuladas, incluindo custos da B3 (R$ 0,60 round-trip) e slippage de 1 tick (5 pontos):
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py backtest --mode FIXO
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py backtest --mode FIXO
 ```
 
 ### Passo 3.1: Teste em Lote de Múltiplos Pregões Reais (Batch Backtest)
 Permite carregar e testar múltiplos dias exportados do Profit Pro em lote (pasta inteira, arquivo de 30 dias ou captura contínua via Clipboard):
 ```powershell
 # Executa nos arquivos da pasta data/historico:
-python C:\Users\glaci\assistente-win-profit\main.py batch-replay --dir data/historico --contracts 5
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py batch-replay --dir data/historico --contracts 5
 
 # Ou via arquivo específico com múltiplos dias:
-python C:\Users\glaci\assistente-win-profit\main.py batch-replay --file "caminho/do/arquivo.csv"
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py batch-replay --file "caminho/do/arquivo.csv"
 
 # Ou via menu interativo de 1 clique:
-C:\Users\glaci\assistente-win-profit\EXECUTAR_REPLAY_LOTE.bat
+C:\Users\glaci\Projetos\mini-indice-B3\EXECUTAR_REPLAY_LOTE.bat
 ```
 
 ### Passo 4: Executar Monitoramento ao Vivo via DDE
@@ -88,17 +88,17 @@ Para conectar ao Profit Pro em tempo real:
 
 #### Monitorar Mini-Índice (WIN):
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py run-dde --symbol WIN
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py run-dde --symbol WIN
 ```
 
 #### Monitorar Mini-Dólar (WDO):
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py run-dde --symbol WDO
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py run-dde --symbol WDO
 ```
 
 #### Monitorar Ações Vale (VALE3):
 ```powershell
-python C:\Users\glaci\assistente-win-profit\main.py run-dde --symbol VALE3
+python C:\Users\glaci\Projetos\mini-indice-B3\main.py run-dde --symbol VALE3
 ```
 
 ---

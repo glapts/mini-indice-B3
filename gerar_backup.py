@@ -12,7 +12,7 @@ backups_dir = os.path.join(base_dir, "backups")
 os.makedirs(backups_dir, exist_ok=True)
 
 today_dmy = datetime.now().strftime("%d-%m-%Y")
-zip_filename = f"assistente-win-profit_backup_{today_dmy}.zip"
+zip_filename = f"mini-indice-B3_backup_{today_dmy}.zip"
 zip_path = os.path.join(backups_dir, zip_filename)
 
 ignore_dirs = {"backups", "build", "dist", "__pycache__", ".git", "logs_antigos"}
