@@ -1,26 +1,30 @@
 {
-  "timestamp": "2026-11-21T10:15:00",
+  "timestamp": "2026-11-23T14:05:00",
   "execution_mode": "COPILOT",
-  "trading_enabled": true,
-  "allowed_direction": "BOTH",
+  "trading_enabled": false,
+  "allowed_direction": "NONE",
   "min_fvg_timeframe": 15,
-  "risk_mode": "NORMAL",
-  "confidence_score": 0.77,
+  "risk_mode": "CONSERVATIVE",
+  "confidence_score": 0.0,
   "circuit_breaker": {
+    "enabled": false,
     "daily_stops_count": 0,
     "max_daily_stops": 2,
     "lockout_active": false
   },
   "macro_regime": {
-    "status": "NEUTRAL",
-    "sp500_bias": "BULLISH",
+    "status": "LOCKOUT",
+    "sp500_bias": "BEARISH",
     "di_curve_bias": "STABLE",
     "dxy_bias": "BEARISH",
-    "event_lockout": false,
-    "lockout_reason": null
+    "event_lockout": true,
+    "lockout_reason": "DADOS MACRO DESATUALIZADOS: feed externo excedeu o TTL de segurança."
   },
   "basket_regime": {
     "synthetic_ibov_alignment": "ALIGNED",
     "vale3_petr4_status": "POSITIVE"
+  },
+  "feed_quality": {
+    "assets": {}
   }
 }

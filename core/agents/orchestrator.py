@@ -32,7 +32,8 @@ class Orchestrator:
         basket_agent: Optional[BasketAgent] = None,
         sentinel_agent: Optional[SentinelAgent] = None,
         output_state_path: str = "data/runtime_state.json",
-        execution_mode: ExecutionMode = ExecutionMode.COPILOT
+        execution_mode: ExecutionMode = ExecutionMode.COPILOT,
+        circuit_breaker_enabled: bool = False
     ):
         self.macro_agent = macro_agent or MacroAgent()
         self.basket_agent = basket_agent or BasketAgent()
@@ -40,7 +41,8 @@ class Orchestrator:
         
         self.output_state_path = output_state_path
         self.execution_mode = execution_mode
-        self.max_daily_stops = 2
+        self.circuit_breaker_enabled = circuit_breaker_enabled
+        self.max_daily_stops = 999 if not self.circuit_breaker_enabled else 2
         self.daily_stops_count = self._load_daily_stops_count()
 
     def _load_daily_stops_count(self) -> int:
@@ -74,7 +76,7 @@ class Orchestrator:
         op_sentinel = self.sentinel_agent.evaluate(now)
 
         # 2. Resolução de Travas Rígidas (Lockouts de Segurança)
-        is_circuit_breaker_active = self.daily_stops_count >= self.max_daily_stops
+        is_circuit_breaker_active = self.circuit_breaker_enabled and (self.daily_stops_count >= self.max_daily_stops)
         is_lockout_active = (
             op_sentinel.lockout or
             op_macro.lockout or
@@ -131,6 +133,7 @@ class Orchestrator:
         )
 
         circuit_breaker = CircuitBreakerState(
+            enabled=self.circuit_breaker_enabled,
             daily_stops_count=self.daily_stops_count,
             max_daily_stops=self.max_daily_stops,
             lockout_active=is_circuit_breaker_active
@@ -155,16 +158,32 @@ class Orchestrator:
         return runtime_state
 
     def _write_state_atomic(self, state: RuntimeStateContract):
-        """Grava o JSON usando arquivo temporário e replace atômico."""
+        """
+        Grava o JSON usando arquivo temporário e replace atômico.
+
+        O temporário é removido em caso de falha: uma execução interrompida
+        deixava arquivos órfãos (tmpXXXX) acumulados no diretório data/.
+        """
+        temp_name = None
         try:
-            os.makedirs(os.path.dirname(os.path.abspath(self.output_state_path)), exist_ok=True)
-            temp_dir = os.path.dirname(os.path.abspath(self.output_state_path))
-            
-            with tempfile.NamedTemporaryFile("w", dir=temp_dir, delete=False, encoding="utf-8") as tf:
+            target = os.path.abspath(self.output_state_path)
+            temp_dir = os.path.dirname(target)
+            os.makedirs(temp_dir, exist_ok=True)
+
+            with tempfile.NamedTemporaryFile(
+                "w", dir=temp_dir, delete=False, encoding="utf-8"
+            ) as tf:
                 json.dump(state.model_dump(), tf, indent=2, ensure_ascii=False)
                 temp_name = tf.name
-            
+
             # Substituição atômica no sistema de arquivos do Windows
-            os.replace(temp_name, os.path.abspath(self.output_state_path))
+            os.replace(temp_name, target)
+            temp_name = None
         except Exception as e:
             print(f"[ORQUESTRADOR ERRO] Falha ao gravar {self.output_state_path}: {e}")
+        finally:
+            if temp_name and os.path.exists(temp_name):
+                try:
+                    os.remove(temp_name)
+                except OSError:
+                    pass

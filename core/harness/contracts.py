@@ -113,9 +113,10 @@ class Niveis60mContract(BaseModel):
 
 
 class CircuitBreakerState(BaseModel):
-    """Estado do Circuit Breaker diário."""
+    """Estado do Circuit Breaker diário (desabilitado em modo Demo Manual)."""
+    enabled: bool = False
     daily_stops_count: int = 0
-    max_daily_stops: int = 2
+    max_daily_stops: int = 999
     lockout_active: bool = False
 
 
@@ -147,6 +148,7 @@ class RuntimeStateContract(BaseModel):
     circuit_breaker: CircuitBreakerState = Field(default_factory=CircuitBreakerState)
     macro_regime: MacroRegimeState = Field(default_factory=MacroRegimeState)
     basket_regime: BasketRegimeState = Field(default_factory=BasketRegimeState)
+    feed_quality: dict = Field(default_factory=dict)
 
 
 class TradeSignal(BaseModel):

@@ -66,11 +66,13 @@ class HarnessGatekeeper:
             if self.runtime_state.allowed_direction == TradingDirection.SHORT_ONLY and proposed_direction != TradingDirection.SHORT:
                 return False, "BLOQUEIO DE DIREÇÃO: Orquestrador autorizou apenas VENDAS (SHORT_ONLY)."
 
-            # 2. Circuit Breaker de Stops Diários
-            if self.runtime_state.circuit_breaker.lockout_active:
-                return False, f"CIRCUIT BREAKER ATIVO: Limite diário de {self.runtime_state.circuit_breaker.max_daily_stops} stops atingido."
-            if self.runtime_state.circuit_breaker.daily_stops_count >= self.runtime_state.circuit_breaker.max_daily_stops:
-                return False, f"CIRCUIT BREAKER DISPARADO: {self.runtime_state.circuit_breaker.daily_stops_count} stops registrados hoje."
+            # 2. Circuit Breaker de Stops Diários (Desabilitado em Modo Demo Manual)
+            cb = self.runtime_state.circuit_breaker
+            if getattr(cb, "enabled", False):
+                if cb.lockout_active:
+                    return False, f"CIRCUIT BREAKER ATIVO: Limite diário de {cb.max_daily_stops} stops atingido."
+                if cb.daily_stops_count >= cb.max_daily_stops:
+                    return False, f"CIRCUIT BREAKER DISPARADO: {cb.daily_stops_count} stops registrados hoje."
 
             # 3. Blackout Macro e Eventos Críticos (P7 e P8)
             if self.runtime_state.macro_regime.event_lockout:
